@@ -153,26 +153,45 @@ class App < Sinatra::Base
 
     sleep 1.0
 
-    rows = db.query('SELECT id FROM channel').to_a
-    channel_ids = rows.map { |row| row['id'] }
+    statement = db.prepare('SELECT haveread.channel_id as channel_id, COUNT(message.id) AS cnt FROM haveread LEFT JOIN message ON message.channel_id = haveread.channel_id AND message.id > haveread.message_id WHERE haveread.user_id = ? GROUP BY haveread.channel_id')
+    haveread = statement.execute(user_id)
+    haveread_unread_message_count_hash = Hash[haveread.to_a.map(&:values)]
+    statement.close
+
+    rows = db.query('SELECT channel.id as channel_id, COUNT(message.channel_id) AS cnt FROM channel LEFT JOIN message ON message.channel_id = channel.id GROUP BY channel.id').to_a
 
     res = []
-    channel_ids.each do |channel_id|
-      statement = db.prepare('SELECT * FROM haveread WHERE user_id = ? AND channel_id = ?')
-      row = statement.execute(user_id, channel_id).first
-      statement.close
+    rows.each do |row|
       r = {}
-      r['channel_id'] = channel_id
-      r['unread'] = if row.nil?
-                      statement = db.prepare('SELECT COUNT(*) as cnt FROM message WHERE channel_id = ?')
-                      statement.execute(channel_id).first['cnt']
-                    else
-                      statement = db.prepare('SELECT COUNT(*) as cnt FROM message WHERE channel_id = ? AND ? < id')
-                      statement.execute(channel_id, row['message_id']).first['cnt']
-                    end
-      statement.close
+      r['channel_id'] = row['channel_id']
+      if haveread_unread_message_count_hash[row['channel_id']]
+        r['unread'] = haveread_unread_message_count_hash[row['channel_id']]
+      else
+        r['unread'] = row['cnt']
+      end
       res << r
     end
+
+    # rows = db.query('SELECT id FROM channel').to_a
+    # channel_ids = rows.map { |row| row['id'] }
+    #
+    # res = []
+    # channel_ids.each do |channel_id|
+    #   statement = db.prepare('SELECT * FROM haveread WHERE user_id = ? AND channel_id = ?')
+    #   row = statement.execute(user_id, channel_id).first
+    #   statement.close
+    #   r = {}
+    #   r['channel_id'] = channel_id
+    #   r['unread'] = if row.nil?
+    #                   statement = db.prepare('SELECT COUNT(*) as cnt FROM message WHERE channel_id = ?')
+    #                   statement.execute(channel_id).first['cnt']
+    #                 else
+    #                   statement = db.prepare('SELECT COUNT(*) as cnt FROM message WHERE channel_id = ? AND ? < id')
+    #                   statement.execute(channel_id, row['message_id']).first['cnt']
+    #                 end
+    #   statement.close
+    #   res << r
+    # end
 
     content_type :json
     res.to_json
