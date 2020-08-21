@@ -1,6 +1,7 @@
 require 'digest/sha1'
 require 'mysql2'
 require 'sinatra/base'
+require 'fileutils'
 
 class App < Sinatra::Base
   configure do
@@ -39,6 +40,10 @@ class App < Sinatra::Base
     db.query("DELETE FROM channel WHERE id > 10")
     db.query("DELETE FROM message WHERE id > 10000")
     db.query("DELETE FROM haveread")
+
+    FileUtils.rm('./public/icons', { force: true })
+    FileUtils.mkdir('./public/icons')
+
     204
   end
 
@@ -294,11 +299,13 @@ class App < Sinatra::Base
           return 400
         end
 
-        data = file[:tempfile].read
-        digest = Digest::SHA1.hexdigest(data)
+        avatar_name = user['id'] + ext
 
-        avatar_name = digest + ext
-        avatar_data = data
+        avatar_path = "./public/icons/#{avatar_name}"
+        avatar_data = file[:tempfile].read
+        File.open(avatar_path, 'wb') do |f|
+          f.write(avatar_data)
+        end
       end
     end
 
