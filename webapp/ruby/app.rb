@@ -118,20 +118,39 @@ class App < Sinatra::Base
 
     channel_id = params[:channel_id].to_i
     last_message_id = params[:last_message_id].to_i
-    statement = db.prepare('SELECT * FROM message WHERE id > ? AND channel_id = ? ORDER BY id DESC LIMIT 100')
+    statement = db.prepare('SELECT message.id, message.channel_id, message.user_id, message.content, message.created_at, user.name, user.display_name, user.avatar_icon FROM message LEFT JOIN user ON user.id = message.user_id WHERE message.id > ? AND channel_id = ? ORDER BY id DESC LIMIT 100')
     rows = statement.execute(last_message_id, channel_id).to_a
     response = []
     rows.each do |row|
       r = {}
       r['id'] = row['id']
-      statement = db.prepare('SELECT name, display_name, avatar_icon FROM user WHERE id = ?')
-      r['user'] = statement.execute(row['user_id']).first
+      r['user'] = {
+        'name' => row['id'],
+        'display_name' => row['display_name'],
+        'avatar_icon' => row['avatar_icon'],
+      }
       r['date'] = row['created_at'].strftime("%Y/%m/%d %H:%M:%S")
       r['content'] = row['content']
       response << r
-      statement.close
     end
     response.reverse!
+
+    # channel_id = params[:channel_id].to_i
+    # last_message_id = params[:last_message_id].to_i
+    # statement = db.prepare('SELECT * FROM message WHERE id > ? AND channel_id = ? ORDER BY id DESC LIMIT 100')
+    # rows = statement.execute(last_message_id, channel_id).to_a
+    # response = []
+    # rows.each do |row|
+    #   r = {}
+    #   r['id'] = row['id']
+    #   statement = db.prepare('SELECT name, display_name, avatar_icon FROM user WHERE id = ?')
+    #   r['user'] = statement.execute(row['user_id']).first
+    #   r['date'] = row['created_at'].strftime("%Y/%m/%d %H:%M:%S")
+    #   r['content'] = row['content']
+    #   response << r
+    #   statement.close
+    # end
+    # response.reverse!
 
     max_message_id = rows.empty? ? 0 : rows.map { |row| row['id'] }.max
     statement = db.prepare([
@@ -231,7 +250,7 @@ class App < Sinatra::Base
     statement = db.prepare('SELECT COUNT(*) as cnt FROM message WHERE channel_id = ?')
     cnt = statement.execute(@channel_id).first['cnt'].to_f
     statement.close
-    @max_page = cnt == 0 ? 1 :(cnt / n).ceil
+    @max_page = cnt == 0 ? 1 : (cnt / n).ceil
 
     return 400 if @page > @max_page
 
