@@ -125,7 +125,7 @@ class App < Sinatra::Base
       r = {}
       r['id'] = row['id']
       r['user'] = {
-        'name' => row['id'],
+        'name' => row['name'],
         'display_name' => row['display_name'],
         'avatar_icon' => row['avatar_icon'],
       }
