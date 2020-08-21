@@ -151,8 +151,6 @@ class App < Sinatra::Base
       return 403
     end
 
-    sleep 1.0
-
     statement = db.prepare('SELECT haveread.channel_id as channel_id, COUNT(message.id) AS cnt FROM haveread LEFT JOIN message ON message.channel_id = haveread.channel_id AND message.id > haveread.message_id WHERE haveread.user_id = ? GROUP BY haveread.channel_id')
     haveread = statement.execute(user_id)
     haveread_unread_message_count_hash = Hash[haveread.to_a.map(&:values)]
