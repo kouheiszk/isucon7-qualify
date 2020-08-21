@@ -1,7 +1,6 @@
 require 'digest/sha1'
 require 'mysql2'
 require 'sinatra/base'
-require 'fileutils'
 
 class App < Sinatra::Base
   configure do
@@ -40,10 +39,6 @@ class App < Sinatra::Base
     db.query("DELETE FROM channel WHERE id > 10")
     db.query("DELETE FROM message WHERE id > 10000")
     db.query("DELETE FROM haveread")
-
-    FileUtils.rm('./public/icons', { force: true })
-    FileUtils.mkdir('./public/icons')
-
     204
   end
 
@@ -140,10 +135,10 @@ class App < Sinatra::Base
 
     max_message_id = rows.empty? ? 0 : rows.map { |row| row['id'] }.max
     statement = db.prepare([
-      'INSERT INTO haveread (user_id, channel_id, message_id, updated_at, created_at) ',
-      'VALUES (?, ?, ?, NOW(), NOW()) ',
-      'ON DUPLICATE KEY UPDATE message_id = ?, updated_at = NOW()',
-    ].join)
+                             'INSERT INTO haveread (user_id, channel_id, message_id, updated_at, created_at) ',
+                             'VALUES (?, ?, ?, NOW(), NOW()) ',
+                             'ON DUPLICATE KEY UPDATE message_id = ?, updated_at = NOW()',
+                           ].join)
     statement.execute(user_id, channel_id, max_message_id, max_message_id)
 
     content_type :json
@@ -169,12 +164,12 @@ class App < Sinatra::Base
       r = {}
       r['channel_id'] = channel_id
       r['unread'] = if row.nil?
-        statement = db.prepare('SELECT COUNT(*) as cnt FROM message WHERE channel_id = ?')
-        statement.execute(channel_id).first['cnt']
-      else
-        statement = db.prepare('SELECT COUNT(*) as cnt FROM message WHERE channel_id = ? AND ? < id')
-        statement.execute(channel_id, row['message_id']).first['cnt']
-      end
+                      statement = db.prepare('SELECT COUNT(*) as cnt FROM message WHERE channel_id = ?')
+                      statement.execute(channel_id).first['cnt']
+                    else
+                      statement = db.prepare('SELECT COUNT(*) as cnt FROM message WHERE channel_id = ? AND ? < id')
+                      statement.execute(channel_id, row['message_id']).first['cnt']
+                    end
       statement.close
       res << r
     end
@@ -246,7 +241,7 @@ class App < Sinatra::Base
     @self_profile = user['id'] == @user['id']
     erb :profile
   end
-  
+
   get '/add_channel' do
     if user.nil?
       return redirect '/login', 303
@@ -299,13 +294,11 @@ class App < Sinatra::Base
           return 400
         end
 
-        avatar_name = user['id'] + ext
+        data = file[:tempfile].read
+        digest = Digest::SHA1.hexdigest(data)
 
-        avatar_path = "./public/icons/#{avatar_name}"
-        avatar_data = file[:tempfile].read
-        File.open(avatar_path, 'wb') do |f|
-          f.write(avatar_data)
-        end
+        avatar_name = digest + ext
+        avatar_data = data
       end
     end
 
